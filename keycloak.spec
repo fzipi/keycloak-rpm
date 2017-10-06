@@ -36,6 +36,7 @@ ln -sf %{name}-%{version}.Final %{buildroot}%{jboss_home}/%{name}
 install -D %{SOURCE1} %{buildroot}/%{_unitdir}/%{name}.service
 install -D %{SOURCE2} %{buildroot}/%{_sysconfdir}/sysconfig/%{name}
 install -D %{SOURCE3} %{buildroot}/%{_docdir}/%{name}/LICENSE
+mkdir -p %{buildroot}%{_sharedstatedir}/%{name}
 
 %pre
 getent group %{name} >/dev/null || groupadd -r %{name}
@@ -51,8 +52,16 @@ exit 0
 %systemd_preun %{name}.service
 
 %postun
-getent passwd %{name} >/dev/null && userdel %{name}
-getent group %{name} >/dev/null && groupdel %{name}
+case "$1" in
+  0)
+    # This is an uninstallation.
+    getent passwd %{name} >/dev/null && userdel %{name}
+    getent group %{name} >/dev/null && groupdel %{name}
+  ;;
+  1)
+    # This is an upgrade.
+  ;;
+esac
 %systemd_postun_with_restart %{name}.service
 
 %clean
@@ -66,11 +75,17 @@ rm -rf %{buildroot}
 %attr(644, root, root) %{_unitdir}/%{name}.service
 %config(noreplace) %attr(640, root, %{name}) %{_sysconfdir}/sysconfig/%{name}
 %doc %{_docdir}/%{name}/LICENSE
+%dir %attr(-, %{name}, %{name}) %{_sharedstatedir}/%{name}
 
 %changelog
 * Fri Oct 06 2017 Felipe Zipitria <fzipi@fing.edu.uy> - 3.2.1-1
 - Updated to version 3.2.1
 
+* Wed Jul 05 2017 Fabian Schlier <mail@fabian-schlier.de> - 3.1.0-3
+- Added var/lib/keycloak directory to spec to avoid service start problems with missing directory
+- Switched sysconfig opts from -key value to -key=value syntax to avoid problems when starting on RHEL7
+* Fri Jun 30 2017 Fabian Schlier <mail@fabian-schlier.de> - 3.1.0-2
+- Added logic to avoid user/group deletion on update. Due to the fact that during an update the postun section of the old rpm is called, this fix starts working after two upgrades.
 * Thu Jun 01 2017 Arun Babu Neelicattu <arun.neelicattu@gmail.com> - 3.1.0-1
 - Initial packaing source.
 
